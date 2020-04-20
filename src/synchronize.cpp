@@ -61,7 +61,7 @@ struct queue {
 			return false;
 		}
 
-		while ((pts > filled.back().f->pts + t0) && !closed) {
+		while ((pts >= filled.back().f->pts + t0) && !closed) {
 			/*
 			 * the other thread is in advance just wait a
 			 * little bit to receive some new frames
@@ -73,14 +73,27 @@ struct queue {
 			return false;
 
 		/*
-		 * we should be able to find the corresponding frame
-		 * now
-		 * please rewrite this part it sucks!
+		 * From here we can say that the queue looks like
+		 * this:
+		 *
+		 * filled.front()->pts + t0 <= pts < filled.back()->pts + t0
+		 *
+		 * So we should be able to find the corresponding
+		 * frame now. We will take the last frame that is
+		 * "lower" than pts. We are sure to find it because we
+		 * know that at least the last frame in the queue is
+		 * greater than pts.
+		 *
+		 * In order to retrieve the righ frame we just take
+		 * the first one. If the next frame pts is greater
+		 * than pts than we already took the right frame. If
+		 * not just drop the current frame and take the next
+		 * one.
 		 */
-		while (!filled.empty() && pts >= filled.front().f->pts + t0) {
+		do {
 			f = filled.front();
 			filled.pop_front();
-		}
+		} while (pts >= filled.front().f->pts + t0);
 
 		return true;
 	}
