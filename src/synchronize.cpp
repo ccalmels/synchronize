@@ -3,6 +3,7 @@
 #include <sstream>
 #include <chrono>
 #include <thread>
+#include <future>
 #include <mutex>
 #include <condition_variable>
 #include <list>
@@ -10,7 +11,7 @@
 #include <ffmpeg.hpp>
 
 struct queue {
-	queue(size_t capacity = 90) : capacity(capacity), max(0), closed(false), t0(AV_NOPTS_VALUE) {}
+	queue(size_t capacity = 90) : capacity(capacity), max(0), closed(false) {}
 
 	void enqueue(av::frame &f) {
 		std::lock_guard<std::mutex> l(m);
@@ -52,7 +53,7 @@ struct queue {
 		if (filled.empty())
 			return false;
 
-		if (pts < filled.front().f->pts + t0) {
+		if (pts < filled.front().f->pts) {
 			/*
 			 * we are reading faster than the other stream
 			 * the only choice is to let the other keeps
@@ -61,7 +62,7 @@ struct queue {
 			return false;
 		}
 
-		while ((pts >= filled.back().f->pts + t0) && !closed) {
+		while ((pts >= filled.back().f->pts) && !closed) {
 			/*
 			 * the other thread is in advance just wait a
 			 * little bit to receive some new frames
@@ -76,7 +77,7 @@ struct queue {
 		 * From here we can say that the queue looks like
 		 * this:
 		 *
-		 * filled.front()->pts + t0 <= pts < filled.back()->pts + t0
+		 * filled.front()->pts <= pts < filled.back()->pts
 		 *
 		 * So we should be able to find the corresponding
 		 * frame now. We will take the last frame that is
@@ -93,7 +94,7 @@ struct queue {
 		do {
 			f = filled.front();
 			filled.pop_front();
-		} while (pts >= filled.front().f->pts + t0);
+		} while (pts >= filled.front().f->pts);
 
 		return true;
 	}
@@ -131,7 +132,6 @@ struct queue {
 	std::list<av::frame> filled;
 	size_t capacity, max;
 	bool closed;
-	int64_t t0;
 };
 
 #define VIDEO_STREAM_INDEX 0
@@ -169,7 +169,8 @@ static void read_input(av::input &in, queue &q)
 		q.enqueue(f);
 }
 
-static void read_video(const std::string &url, queue &q)
+static void read_video(const std::string &url,
+		       std::promise<int64_t> t0_future, queue &q)
 {
 	av::input in;
 	bool is_rtsp;
@@ -229,7 +230,7 @@ static void read_video(const std::string &url, queue &q)
 		 *
 		 * av_rescale(a, b, c) is equivalent to a * b / c
 		 */
-		q.t0 = av_rescale(t0, time_base.den, time_base.num * 1000000);
+		t0_future.set_value(av_rescale(t0, time_base.den, time_base.num * 1000000));
 
 		read_input(in, q);
 	} else
@@ -248,9 +249,14 @@ int main(int argc, char *argv[])
 
 	queue q1, q2;
 	std::thread t1,t2;
+	std::promise<int64_t> t0_promise1, t0_promise2;
+	auto t0_future1 = t0_promise1.get_future();
+	auto t0_future2 = t0_promise2.get_future();
 
-	t1 = std::thread(read_video, argv[1], std::ref(q1));
-	t2 = std::thread(read_video, argv[2], std::ref(q2));
+	t1 = std::thread(read_video, argv[1], std::move(t0_promise1), std::ref(q1));
+	t2 = std::thread(read_video, argv[2], std::move(t0_promise2), std::ref(q2));
+
+	int64_t delta = t0_future1.get() - t0_future2.get();
 
 	while (!q1.is_closed() && !q2.is_closed()) {
 		// start reading frame here
@@ -264,7 +270,7 @@ int main(int argc, char *argv[])
 
 		f1 = q1.acquire();
 
-		if (q2.acquire(f2, f1.f->pts + q1.t0)) {
+		if (q2.acquire(f2, f1.f->pts + delta)) {
 			// do something with f1 and f2
 		} else {
 			std::cerr << std::endl << "can't find a second frame" << std::endl;
