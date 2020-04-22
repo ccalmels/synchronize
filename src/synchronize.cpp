@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
 		// start reading frame here
 		av::frame f1, f2;
 
-		std::cerr << "\r\033[2L";
+		std::cerr << "\r\033[K";
 		std::cerr << "q1: " << std::setw(2) << q1.size()
 			  << "/" << std::setw(2) << q1.max_size()
 			  << " q2: " << std::setw(2) << q2.size()
