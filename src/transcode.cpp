@@ -32,8 +32,8 @@ int main(int argc, char *argv[])
 
 	av::packet pin, pout;
 	av::frame f;
-	AVRational avg_frame_rate = video.avg_frame_rate(0);
-	std::string time_base = std::to_string(avg_frame_rate.den) + "/" + std::to_string(avg_frame_rate.num);
+	AVRational frame_rate = video.frame_rate(0);
+	std::string time_base = std::to_string(frame_rate.den) + "/" + std::to_string(frame_rate.num);
 	bool metadata_written = false;
 
 	while (video >> pin) {
