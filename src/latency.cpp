@@ -1,9 +1,12 @@
 #include <iostream>
 #include <sstream>
+#include <limits>
 #include <ffmpeg.hpp>
 #include <sys/time.h>
 
 struct statistics {
+	statistics() : min(std::numeric_limits<int64_t>::max()),
+		max(0), total(0), count(0) {}
 	int64_t min, max, total;
 	size_t count;
 
@@ -36,7 +39,7 @@ static int64_t get_time()
 
 int main(int argc, char *argv[])
 {
-	statistics s = { 1000000, 0, 0, 0 };
+	statistics s;
 	bool is_rtsp;
 	int64_t t0 = AV_NOPTS_VALUE;
 	std::string url;
