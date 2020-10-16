@@ -1,47 +1,12 @@
 #include <iostream>
-#include <sstream>
-#include <limits>
 #include <ffmpeg.hpp>
-#include <sys/time.h>
-
-struct statistics {
-	statistics() : min(std::numeric_limits<int64_t>::max()),
-		max(0), total(0), count(0) {}
-	int64_t min, max, total;
-	size_t count;
-
-	void add(int64_t latency) {
-		if (latency < min)
-			min = latency;
-		if (latency > max)
-			max = latency;
-
-		total += latency;
-		count++;
-	}
-};
-
-std::ostream& operator<<(std::ostream& os, const statistics& s)
-{
-	os << "min: " << s.min << " max: " << s.max
-	   << " mean: " << s.total / s.count;
-	return os;
-}
-
-static int64_t get_time()
-{
-	struct timeval tv;
-
-	gettimeofday(&tv, nullptr);
-
-	return tv.tv_usec + 1000000 * tv.tv_sec;
-}
+#include "common.hpp"
 
 int main(int argc, char *argv[])
 {
 	statistics s;
 	bool is_rtsp;
-	int64_t t0 = AV_NOPTS_VALUE;
+	int64_t t0;
 	std::string url;
 
 	if (argc < 2)
@@ -55,30 +20,9 @@ int main(int argc, char *argv[])
 	if (!video.open(url, is_rtsp ? "rtsp_transport=tcp" : ""))
 		return -1;
 
-	if (!is_rtsp) {
-		// get t0 from metadata
-		std::stringstream sstr(video.program_metadata(0));
-		std::string tmp;
-
-		while (getline(sstr, tmp, ':')) {
-			auto equal = tmp.find('=');
-
-			if (equal == std::string::npos)
-				continue;
-
-			if (tmp.compare(0, equal, "service_name") == 0) {
-				tmp.erase(0, equal + 1);
-
-				t0 = std::stoll(tmp);
-				break;
-			}
-		}
-
-		if (t0 == AV_NOPTS_VALUE) {
-			std::cerr << "Unable to find t0" << std::endl;
-			return -1;
-		}
-	}
+	t0 = is_rtsp ? get_rtsp_t0(video) : get_metadata_t0(video);
+	if (t0 == AV_NOPTS_VALUE)
+		return -1;
 
 	av::decoder dec = video.get(0);
 	if (!dec)
@@ -95,14 +39,6 @@ int main(int argc, char *argv[])
 		dec << p;
 
 		while (dec >> f) {
-			if (t0 == AV_NOPTS_VALUE) {
-				int64_t realtime = video.start_time_realtime();
-				if (realtime == AV_NOPTS_VALUE)
-					continue;
-
-				t0 = realtime;
-			}
-
 			int64_t latency = get_time() - av_rescale(f.f->pts, time_base.num * 1000000,
 								  time_base.den) - t0;
 

@@ -1,7 +1,5 @@
 #include <iostream>
 #include <iomanip>
-#include <sstream>
-#include <chrono>
 #include <thread>
 #include <future>
 #include <mutex>
@@ -9,6 +7,7 @@
 #include <list>
 
 #include <ffmpeg.hpp>
+#include "common.hpp"
 
 struct queue {
 	queue(size_t capacity = 90) : capacity(capacity), max(0), closed(false) {}
@@ -178,39 +177,7 @@ static void read_video(const std::string &url,
 	is_rtsp = (url.compare(0,7, "rtsp://") == 0);
 
 	if (in.open(url, is_rtsp ? "rtsp_transport=tcp" : "")) {
-		int64_t t0;
-
-		if (is_rtsp) {
-			// get t0 from start_real_time
-			av::packet p;
-
-			while (in >> p) {
-				int64_t realtime = in.start_time_realtime();
-
-				if (realtime != AV_NOPTS_VALUE) {
-					t0 = realtime;
-					break;
-				}
-			}
-		} else {
-			// get t0 from metadata
-			std::stringstream sstr(in.program_metadata(0));
-			std::string tmp;
-
-			while (getline(sstr, tmp, ':')) {
-				auto equal = tmp.find('=');
-
-				if (equal == std::string::npos)
-					continue;
-
-				if (tmp.compare(0, equal, "service_name") == 0) {
-					tmp.erase(0, equal + 1);
-
-					t0 = std::stoll(tmp);
-					break;
-				}
-			}
-		}
+		int64_t t0 = is_rtsp ? get_rtsp_t0(in) : get_metadata_t0(in);
 
 		std::cerr << "t0: " << t0 << std::endl;
 
@@ -241,6 +208,8 @@ static void read_video(const std::string &url,
 
 int main(int argc, char *argv[])
 {
+	statistics s;
+
 	if (argc < 3) {
 		std::cerr << "Usage: " << argv[0]
 			  << " <url> <url>" << std::endl;

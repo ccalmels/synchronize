@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ffmpeg.hpp>
+#include "common.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -12,15 +13,15 @@ int main(int argc, char *argv[])
 	url = argv[1];
 	out_url = argv[2];
 
-	av::input video;
-	if (!video.open(url, "rtsp_transport=tcp"))
+	av::input in;
+	if (!in.open(url, "rtsp_transport=tcp"))
 		return -1;
 
 	av::hw_device accel = av::hw_device("cuda", std::to_string(gpu_index));
 	if (!accel)
 		return -1;
 
-	av::decoder dec = video.get(accel, 0);
+	av::decoder dec = in.get(accel, 0);
 	if (!dec)
 		return -1;
 
@@ -28,33 +29,23 @@ int main(int argc, char *argv[])
 	if (!out.open(out_url))
 		return -1;
 
-	av::encoder enc;
+	out.add_metadata("service_name="
+			 + std::to_string(get_rtsp_t0(in)));
 
 	av::packet pin, pout;
 	av::frame f;
-	AVRational frame_rate = video.frame_rate(0);
+	AVRational frame_rate = in.frame_rate(0);
 	std::string time_base = std::to_string(frame_rate.den) + "/" + std::to_string(frame_rate.num);
-	bool metadata_written = false;
+	av::encoder enc;
 
-	while (video >> pin) {
+	while (in >> pin) {
 		if (pin.stream_index() != 0)
 			continue;
 
 		dec << pin;
-
 		while (dec >> f) {
-			if (!metadata_written) {
-				int64_t realtime = video.start_time_realtime();
-				if (realtime == AV_NOPTS_VALUE)
-					continue;
-
-				metadata_written = true;
-				out.add_metadata("service_name=" + std::to_string(realtime));
-			}
-
 			if (!enc)
-				enc = out.add_stream(dec.get_hw_frames(),
-						     "h264_nvenc",
+				enc = out.add_stream(dec.get_hw_frames(), "h264_nvenc",
 						     "preset=llhq:spatial-aq=true:aq-strength=15:qp=33:gpu=" + std::to_string(gpu_index) + ":time_base=" + time_base);
 
 			enc << f;
