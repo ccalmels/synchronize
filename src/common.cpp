@@ -20,8 +20,9 @@ void statistics::add(int64_t latency)
 
 std::ostream& operator<<(std::ostream& os, const statistics& s)
 {
-	os << "min: " << s.min << " max: " << s.max
-	   << " mean: " << s.total / s.count;
+	if (s.count)
+		os << "min: " << s.min << " max: " << s.max
+		   << " mean: " << s.total / s.count;
 	return os;
 }
 
