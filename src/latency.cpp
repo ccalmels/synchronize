@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
 		dec << p;
 
 		while (dec >> f) {
-			int64_t latency = get_time() - av_rescale(f.f->pts, time_base.num * 1000000,
-								  time_base.den) - t0;
+			int64_t latency = get_time_us() - av_rescale(f.f->pts, time_base.num * 1000000,
+								     time_base.den) - t0;
 
 			// convert to ms
 			latency /= 1000;

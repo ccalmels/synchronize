@@ -17,6 +17,6 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const statistics& s);
 
-int64_t get_time();
+int64_t get_time_us();
 int64_t get_rtsp_t0(av::input &video);
 int64_t get_metadata_t0(av::input &video);

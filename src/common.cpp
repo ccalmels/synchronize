@@ -25,7 +25,7 @@ std::ostream& operator<<(std::ostream& os, const statistics& s)
 	return os;
 }
 
-int64_t get_time()
+int64_t get_time_us()
 {
 	auto now = std::chrono::system_clock::now().time_since_epoch();
 
