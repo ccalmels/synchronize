@@ -20,3 +20,9 @@ executable('transcode', [
 	    'src/transcode.cpp'
           ],
 	   dependencies : libavdep)
+
+executable('rtsp2mpegts', [
+	    'src/common.cpp',
+	    'src/rtsp2mpegts.cpp'
+          ],
+	   dependencies : libavdep)
