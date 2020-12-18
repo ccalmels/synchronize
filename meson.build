@@ -1,4 +1,4 @@
-project('small utilities', 'cpp', default_options: [ 'cpp_std=c++14' ])
+project('small utilities', 'cpp', default_options: [ 'cpp_std=c++17' ])
 
 libav = subproject('av-cpp')
 libavdep = libav.get_variable('avcpp_dep')
