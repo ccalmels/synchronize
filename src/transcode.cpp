@@ -34,9 +34,10 @@ int main(int argc, char *argv[])
 
 	av::packet pin, pout;
 	av::frame f;
-	AVRational frame_rate = in.frame_rate(0);
-	std::string time_base = std::to_string(frame_rate.den) + "/" + std::to_string(frame_rate.num);
 	av::encoder enc;
+	auto options = "preset=llhq:spatial-aq=true:aq-strength=15:qp=33:"
+		"gpu=" + std::to_string(gpu_index) +
+		":time_base=" + av::to_string(av_inv_q(in.frame_rate(0)));
 
 	while (in >> pin) {
 		if (pin.stream_index() != 0)
@@ -45,9 +46,8 @@ int main(int argc, char *argv[])
 		dec << pin;
 		while (dec >> f) {
 			if (!enc)
-				enc = out.add_stream(dec.get_hw_frames(), "h264_nvenc",
-						     "preset=llhq:spatial-aq=true:aq-strength=15:qp=33:gpu=" + std::to_string(gpu_index) + ":time_base=" + time_base);
-
+				enc = out.add_stream(dec.get_hw_frames(),
+						     "h264_nvenc", options);
 			enc << f;
 			while (enc >> pout)
 				out.write_norescale(pout);
