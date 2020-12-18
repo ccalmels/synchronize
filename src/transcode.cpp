@@ -4,20 +4,21 @@
 
 int main(int argc, char *argv[])
 {
-	int gpu_index = 0;
-	std::string url, out_url;
+	std::string gpu = "0", url, out_url;
 
 	if (argc < 3)
 		return -1;
 
 	url = argv[1];
 	out_url = argv[2];
+	if (argc > 3)
+		gpu = argv[3];
 
 	av::input in;
 	if (!in.open(url, "rtsp_transport=tcp"))
 		return -1;
 
-	av::hw_device accel = av::hw_device("cuda", std::to_string(gpu_index));
+	av::hw_device accel = av::hw_device("cuda", gpu);
 	if (!accel)
 		return -1;
 
@@ -36,7 +37,7 @@ int main(int argc, char *argv[])
 	av::frame f;
 	av::encoder enc;
 	auto options = "preset=llhq:spatial-aq=true:aq-strength=15:qp=33:"
-		"gpu=" + std::to_string(gpu_index) +
+		"gpu=" + gpu +
 		":time_base=" + av::to_string(av_inv_q(in.frame_rate(0)));
 
 	while (in >> pin) {
