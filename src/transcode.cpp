@@ -37,8 +37,7 @@ int main(int argc, char *argv[])
 	av::frame f;
 	av::encoder enc;
 	auto options = "preset=llhq:spatial-aq=true:aq-strength=15:qp=33:"
-		"gpu=" + gpu +
-		":time_base=" + av::to_string(av_inv_q(in.frame_rate(0)));
+		"time_base=" + av::to_string(av_inv_q(in.frame_rate(0)));
 
 	while (in >> pin) {
 		if (pin.stream_index() != 0)
