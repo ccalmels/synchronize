@@ -23,6 +23,8 @@ std::ostream& operator<<(std::ostream& os, const statistics& s)
 	if (s.count)
 		os << "min: " << s.min << " max: " << s.max
 		   << " mean: " << s.total / s.count;
+	else
+		os << "no stats";
 	return os;
 }
 
